@@ -111,6 +111,17 @@ def create_task(body: TaskCreate):
     return row_to_task(row)
 
 
+@app.get("/tasks/overdue", response_model=list[Task])
+def get_overdue_tasks():
+    today = date.today().isoformat()
+    with contextlib.closing(get_db()) as conn:
+        rows = conn.execute(
+            "SELECT * FROM tasks WHERE due_date < ? AND done = 0 ORDER BY due_date ASC",
+            (today,),
+        ).fetchall()
+    return [row_to_task(r) for r in rows]
+
+
 @app.get("/tasks/stats")
 def get_stats():
     with contextlib.closing(get_db()) as conn:

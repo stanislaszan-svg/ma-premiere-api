@@ -110,6 +110,21 @@ def test_filter_by_priority():
     assert client.get("/tasks?priority=critical").status_code == 422
 
 
+def test_overdue():
+    client.post("/tasks", json={"title": "Overdue", "due_date": "2020-01-01"})
+    client.post("/tasks", json={"title": "Future", "due_date": "2099-12-31"})
+    client.post("/tasks", json={"title": "No date"})
+    r = client.post("/tasks", json={"title": "Overdue but done", "due_date": "2020-01-01"})
+    client.post(f"/tasks/{r.json()['id']}/complete")
+
+    overdue = client.get("/tasks/overdue").json()
+    assert all(t["done"] is False for t in overdue)
+    assert all(t["due_date"] is not None and t["due_date"] < "2026-06-06" for t in overdue)
+    assert not any(t["title"] == "Future" for t in overdue)
+    assert not any(t["title"] == "No date" for t in overdue)
+    assert not any(t["title"] == "Overdue but done" for t in overdue)
+
+
 def test_due_date():
     r = client.post("/tasks", json={"title": "With date", "due_date": "2026-12-31"})
     assert r.status_code == 201
