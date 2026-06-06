@@ -163,6 +163,24 @@ def test_overdue():
     assert not any(t["title"] == "Overdue but done" for t in overdue)
 
 
+def test_filter_by_tag():
+    a = client.post("/tasks", json={"title": "Work task", "tags": ["work", "urgent"]}).json()["id"]
+    b = client.post("/tasks", json={"title": "Home task", "tags": ["home"]}).json()["id"]
+    c = client.post("/tasks", json={"title": "Both", "tags": ["work", "home"]}).json()["id"]
+    d = client.post("/tasks", json={"title": "No tag"}).json()["id"]
+
+    work_ids = {t["id"] for t in client.get("/tasks?tag=work").json()}
+    assert a in work_ids and c in work_ids
+    assert b not in work_ids and d not in work_ids
+
+    home_ids = {t["id"] for t in client.get("/tasks?tag=home").json()}
+    assert b in home_ids and c in home_ids
+    assert a not in home_ids
+
+    # pas de faux positif sur un sous-mot
+    assert d not in {t["id"] for t in client.get("/tasks?tag=ork").json()}
+
+
 def test_tags():
     r = client.post("/tasks", json={"title": "Tagged", "tags": ["work", "urgent"]})
     assert r.status_code == 201

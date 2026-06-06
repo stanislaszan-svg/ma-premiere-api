@@ -89,7 +89,7 @@ def row_to_task(row: sqlite3.Row) -> Task:
 
 
 @app.get("/tasks", response_model=list[Task])
-def list_tasks(done: Optional[bool] = None, priority: Optional[Priority] = None):
+def list_tasks(done: Optional[bool] = None, priority: Optional[Priority] = None, tag: Optional[str] = None):
     filters, values = [], []
     if done is not None:
         filters.append("done = ?")
@@ -97,6 +97,9 @@ def list_tasks(done: Optional[bool] = None, priority: Optional[Priority] = None)
     if priority is not None:
         filters.append("priority = ?")
         values.append(priority)
+    if tag is not None:
+        filters.append("EXISTS (SELECT 1 FROM json_each(tasks.tags) WHERE value = ?)")
+        values.append(tag)
     where = f"WHERE {' AND '.join(filters)}" if filters else ""
     with contextlib.closing(get_db()) as conn:
         rows = conn.execute(
