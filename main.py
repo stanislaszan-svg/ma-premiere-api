@@ -62,9 +62,14 @@ def row_to_task(row: sqlite3.Row) -> Task:
 
 
 @app.get("/tasks", response_model=list[Task])
-def list_tasks():
+def list_tasks(done: Optional[bool] = None):
     with contextlib.closing(get_db()) as conn:
-        rows = conn.execute("SELECT * FROM tasks ORDER BY created_at DESC").fetchall()
+        if done is None:
+            rows = conn.execute("SELECT * FROM tasks ORDER BY created_at DESC").fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM tasks WHERE done = ? ORDER BY created_at DESC", (int(done),)
+            ).fetchall()
     return [row_to_task(r) for r in rows]
 
 

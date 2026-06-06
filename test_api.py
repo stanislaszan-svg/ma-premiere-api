@@ -44,6 +44,20 @@ def test_delete_task():
     assert r.status_code == 404
 
 
+def test_filter_by_done():
+    client.post("/tasks", json={"title": "Pending task"})
+    r = client.post("/tasks", json={"title": "Done task"})
+    client.put(f"/tasks/{r.json()['id']}", json={"done": True})
+
+    done_tasks = client.get("/tasks?done=true").json()
+    pending_tasks = client.get("/tasks?done=false").json()
+    all_tasks = client.get("/tasks").json()
+
+    assert all(t["done"] is True for t in done_tasks)
+    assert all(t["done"] is False for t in pending_tasks)
+    assert len(all_tasks) == len(done_tasks) + len(pending_tasks)
+
+
 def test_not_found():
     assert client.get("/tasks/999999").status_code == 404
     assert client.put("/tasks/999999", json={"title": "x"}).status_code == 404
