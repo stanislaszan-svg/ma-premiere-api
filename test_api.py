@@ -342,6 +342,46 @@ def test_delete_completed():
     assert all(t["done"] is False for t in client.get("/tasks").json())
 
 
+def test_history():
+    r = client.post("/tasks", json={"title": "History task", "priority": "low", "tags": ["a"]})
+    task_id = r.json()["id"]
+
+    # aucune entrée au départ
+    assert client.get(f"/tasks/{task_id}/history").json() == []
+
+    # PATCH : title + priority + tags changent → 3 entrées
+    client.patch(f"/tasks/{task_id}", json={"title": "History task v2", "priority": "high", "tags": ["a", "b"]})
+    entries = client.get(f"/tasks/{task_id}/history").json()
+    fields = {e["field"] for e in entries}
+    assert fields == {"title", "priority", "tags"}
+    title_entry = next(e for e in entries if e["field"] == "title")
+    assert title_entry["old_value"] == "History task"
+    assert title_entry["new_value"] == "History task v2"
+
+    # complete → 1 entrée supplémentaire (done)
+    client.post(f"/tasks/{task_id}/complete")
+    entries = client.get(f"/tasks/{task_id}/history").json()
+    assert any(e["field"] == "done" and e["old_value"] == "0" and e["new_value"] == "1" for e in entries)
+
+    # reopen → 1 entrée supplémentaire (done)
+    client.post(f"/tasks/{task_id}/reopen")
+    entries = client.get(f"/tasks/{task_id}/history").json()
+    done_entries = [e for e in entries if e["field"] == "done"]
+    assert len(done_entries) == 2
+
+    # triés du plus récent au plus ancien
+    timestamps = [e["changed_at"] for e in entries]
+    assert timestamps == sorted(timestamps, reverse=True)
+
+    # 404 sur tâche inexistante
+    assert client.get("/tasks/999999/history").status_code == 404
+
+    # PATCH sans changement réel → 0 nouvelles entrées
+    count_before = len(entries)
+    client.patch(f"/tasks/{task_id}", json={"title": "History task v2"})  # même valeur
+    assert len(client.get(f"/tasks/{task_id}/history").json()) == count_before
+
+
 def test_not_found():
     assert client.get("/tasks/999999").status_code == 404
     assert client.put("/tasks/999999", json={"title": "x"}).status_code == 404
