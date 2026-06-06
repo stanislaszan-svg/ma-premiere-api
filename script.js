@@ -232,17 +232,23 @@ async function openModal(id = null) {
     document.getElementById('fDesc').value     = '';
     document.getElementById('fPriority').value = 'medium';
     document.getElementById('fDueDate').value  = '';
+    document.getElementById('historySection').style.display = 'none';
+    document.getElementById('historyList').innerHTML = '';
     renderTagChips();
 
     if (id) {
         try {
-            const t = await http('GET', `/tasks/${id}`);
+            const [t, history] = await Promise.all([
+                http('GET', `/tasks/${id}`),
+                http('GET', `/tasks/${id}/history`),
+            ]);
             document.getElementById('fTitle').value    = t.title;
             document.getElementById('fDesc').value     = t.description ?? '';
             document.getElementById('fPriority').value = t.priority;
             document.getElementById('fDueDate').value  = t.due_date ?? '';
             state.formTags = [...(t.tags ?? [])];
             renderTagChips();
+            renderHistory(history);
         } catch (e) {
             showToast('Impossible de charger la tâche', 'error');
             return;
@@ -251,6 +257,44 @@ async function openModal(id = null) {
 
     document.getElementById('overlay').classList.add('open');
     setTimeout(() => document.getElementById('fTitle').focus(), 150);
+}
+
+function renderHistory(entries) {
+    const section = document.getElementById('historySection');
+    if (!entries.length) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    document.getElementById('historyList').innerHTML = entries.map(e => `
+        <div class="history-entry">
+            <div class="history-dot"></div>
+            <div class="history-content">
+                <span class="history-field">${historyFieldLabel(e.field)}</span>
+                <span class="history-old">${historyValue(e.field, e.old_value)}</span>
+                <span class="history-arrow">→</span>
+                <span class="history-new">${historyValue(e.field, e.new_value)}</span>
+                <span class="history-time">${fmtDateTime(e.changed_at)}</span>
+            </div>
+        </div>`).join('');
+}
+
+function historyFieldLabel(field) {
+    return { title: 'Titre', description: 'Description', done: 'Statut',
+             priority: 'Priorité', due_date: 'Échéance', tags: 'Tags' }[field] ?? field;
+}
+
+function historyValue(field, value) {
+    if (value === null || value === undefined) return '<em style="color:var(--text-muted)">—</em>';
+    if (field === 'done')     return value === '1' ? 'Terminée' : 'En cours';
+    if (field === 'priority') return { low: 'Basse', medium: 'Moyenne', high: 'Haute' }[value] ?? value;
+    if (field === 'tags') {
+        try { const t = JSON.parse(value); return t.length ? esc(t.join(', ')) : '—'; } catch { return esc(value); }
+    }
+    if (field === 'due_date') return fmtDate(value);
+    return esc(value);
+}
+
+function fmtDateTime(iso) {
+    const [d, time] = iso.split(' ');
+    return fmtDate(d) + ' ' + time.slice(0, 5);
 }
 
 function closeModal() {

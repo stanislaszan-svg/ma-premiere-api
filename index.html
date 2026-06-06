@@ -166,6 +166,20 @@
         .toast.info { background: var(--primary); }
         @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
+        /* ── History ── */
+        .history-divider { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+        .history-divider::before, .history-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+        .history-list { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; }
+        .history-entry { display: flex; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+        .history-entry:last-child { border-bottom: none; }
+        .history-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--primary); margin-top: 5px; flex-shrink: 0; }
+        .history-content { flex: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; font-size: 12px; min-width: 0; }
+        .history-field { font-weight: 600; color: var(--text); background: var(--bg); border-radius: 4px; padding: 1px 6px; flex-shrink: 0; }
+        .history-old { color: var(--high); text-decoration: line-through; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .history-new { color: var(--low); font-weight: 500; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .history-arrow { color: var(--text-muted); flex-shrink: 0; }
+        .history-time { color: var(--text-muted); font-size: 11px; margin-left: auto; white-space: nowrap; padding-left: 6px; }
+
         /* ── Responsive ── */
         @media (max-width: 900px) {
             .stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -252,6 +266,10 @@
                     <input id="tagField" class="tag-field" type="text" placeholder="ex: travail, urgent…">
                 </div>
             </div>
+        </div>
+        <div id="historySection" style="display:none; padding: 0 24px 8px;">
+            <div class="history-divider"><span>Historique</span></div>
+            <div class="history-list" id="historyList"></div>
         </div>
         <div class="modal-foot">
             <button class="btn btn-ghost" onclick="closeModal()">Annuler</button>
