@@ -173,11 +173,21 @@ def get_stats():
                 "SELECT priority, COUNT(*) as total, SUM(done) as done FROM tasks GROUP BY priority"
             ).fetchall()
         }
+        by_tag = {
+            row["tag"]: {"total": row["total"], "done": row["done"], "pending": row["total"] - row["done"]}
+            for row in conn.execute("""
+                SELECT j.value as tag, COUNT(*) as total, SUM(t.done) as done
+                FROM tasks t, json_each(t.tags) j
+                GROUP BY j.value
+                ORDER BY j.value ASC
+            """).fetchall()
+        }
     return {
         "total": total,
         "done": done,
         "pending": total - done,
         "by_priority": {p: by_priority.get(p, {"total": 0, "done": 0, "pending": 0}) for p in ("high", "medium", "low")},
+        "by_tag": by_tag,
     }
 
 

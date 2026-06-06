@@ -93,6 +93,14 @@ def test_stats():
         assert p["total"] == p["done"] + p["pending"]
     assert bp["high"]["total"] >= 2
 
+    client.post("/tasks", json={"title": "Tagged stats", "tags": ["work", "urgent"]})
+    stats = client.get("/tasks/stats").json()
+    bt = stats["by_tag"]
+    assert "work" in bt and "urgent" in bt
+    for v in bt.values():
+        assert v["total"] == v["done"] + v["pending"]
+    assert list(bt.keys()) == sorted(bt.keys())
+
 
 def test_filter_by_priority():
     client.post("/tasks", json={"title": "High 1", "priority": "high"})
