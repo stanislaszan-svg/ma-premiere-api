@@ -153,6 +153,16 @@ def get_today_tasks():
     return [row_to_task(r) for r in rows]
 
 
+@app.get("/tasks/search", response_model=list[Task])
+def search_tasks(q: str):
+    with contextlib.closing(get_db()) as conn:
+        rows = conn.execute(
+            "SELECT * FROM tasks WHERE title LIKE ? ORDER BY created_at DESC",
+            (f"%{q}%",),
+        ).fetchall()
+    return [row_to_task(r) for r in rows]
+
+
 @app.get("/tasks/tags", response_model=list[str])
 def list_tags():
     with contextlib.closing(get_db()) as conn:

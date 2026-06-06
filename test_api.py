@@ -186,6 +186,25 @@ def test_overdue():
     assert not any(t["title"] == "Overdue but done" for t in overdue)
 
 
+def test_search():
+    client.post("/tasks", json={"title": "Acheter du lait"})
+    client.post("/tasks", json={"title": "Acheter du pain"})
+    client.post("/tasks", json={"title": "Faire du sport"})
+
+    r = client.get("/tasks/search?q=Acheter")
+    assert r.status_code == 200
+    titles = [t["title"] for t in r.json()]
+    assert "Acheter du lait" in titles
+    assert "Acheter du pain" in titles
+    assert "Faire du sport" not in titles
+
+    assert len(client.get("/tasks/search?q=sport").json()) >= 1
+    assert client.get("/tasks/search?q=xyzimpossible").json() == []
+
+    r = client.get("/tasks/search")
+    assert r.status_code == 422  # q est obligatoire
+
+
 def test_list_tags():
     client.post("/tasks", json={"title": "T1", "tags": ["work", "urgent"]})
     client.post("/tasks", json={"title": "T2", "tags": ["home", "work"]})
