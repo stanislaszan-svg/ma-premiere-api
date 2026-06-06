@@ -74,14 +74,19 @@ def row_to_task(row: sqlite3.Row) -> Task:
 
 
 @app.get("/tasks", response_model=list[Task])
-def list_tasks(done: Optional[bool] = None):
+def list_tasks(done: Optional[bool] = None, priority: Optional[Priority] = None):
+    filters, values = [], []
+    if done is not None:
+        filters.append("done = ?")
+        values.append(int(done))
+    if priority is not None:
+        filters.append("priority = ?")
+        values.append(priority)
+    where = f"WHERE {' AND '.join(filters)}" if filters else ""
     with contextlib.closing(get_db()) as conn:
-        if done is None:
-            rows = conn.execute("SELECT * FROM tasks ORDER BY created_at DESC").fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM tasks WHERE done = ? ORDER BY created_at DESC", (int(done),)
-            ).fetchall()
+        rows = conn.execute(
+            f"SELECT * FROM tasks {where} ORDER BY created_at DESC", values
+        ).fetchall()
     return [row_to_task(r) for r in rows]
 
 

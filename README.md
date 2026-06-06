@@ -28,7 +28,7 @@ La documentation interactive Swagger est accessible sur `http://localhost:8000/d
 
 | Méthode  | Route           | Description              |
 |----------|-----------------|--------------------------|
-| `GET`    | `/tasks`        | Lister toutes les tâches (param optionnel : `?done=true\|false`) |
+| `GET`    | `/tasks`        | Lister toutes les tâches (params : `?done=true\|false`, `?priority=low\|medium\|high`, combinables) |
 | `GET`    | `/tasks/stats`  | Nombre de tâches total, terminées et en cours |
 | `POST`   | `/tasks`        | Créer une tâche          |
 | `GET`    | `/tasks/{id}`   | Récupérer une tâche      |

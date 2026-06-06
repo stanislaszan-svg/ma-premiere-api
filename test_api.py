@@ -88,6 +88,28 @@ def test_stats():
     assert stats["total"] == stats["done"] + stats["pending"]
 
 
+def test_filter_by_priority():
+    client.post("/tasks", json={"title": "High 1", "priority": "high"})
+    client.post("/tasks", json={"title": "High 2", "priority": "high"})
+    client.post("/tasks", json={"title": "Low 1", "priority": "low"})
+
+    highs = client.get("/tasks?priority=high").json()
+    lows = client.get("/tasks?priority=low").json()
+    mediums = client.get("/tasks?priority=medium").json()
+
+    assert all(t["priority"] == "high" for t in highs)
+    assert all(t["priority"] == "low" for t in lows)
+    assert all(t["priority"] == "medium" for t in mediums)
+
+    # combinaison done + priority
+    task_id = highs[0]["id"]
+    client.post(f"/tasks/{task_id}/complete")
+    r = client.get("/tasks?priority=high&done=true").json()
+    assert all(t["priority"] == "high" and t["done"] is True for t in r)
+
+    assert client.get("/tasks?priority=critical").status_code == 422
+
+
 def test_priority():
     r = client.post("/tasks", json={"title": "Urgent", "priority": "high"})
     assert r.status_code == 201
