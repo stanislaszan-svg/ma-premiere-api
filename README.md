@@ -1,5 +1,7 @@
 # Ma Première API — Gestionnaire de Tâches
 
+![Tests](https://github.com/stanislaszan-svg/ma-premiere-api/actions/workflows/tests.yml/badge.svg)
+
 API REST de gestion de tâches construite avec **FastAPI** et **SQLite**, avec une interface web intégrée.
 
 ## Stack
