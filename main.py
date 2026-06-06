@@ -85,6 +85,14 @@ def create_task(body: TaskCreate):
     return row_to_task(row)
 
 
+@app.get("/tasks/stats")
+def get_stats():
+    with contextlib.closing(get_db()) as conn:
+        total = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
+        done = conn.execute("SELECT COUNT(*) FROM tasks WHERE done = 1").fetchone()[0]
+    return {"total": total, "done": done, "pending": total - done}
+
+
 @app.get("/tasks/{task_id}", response_model=Task)
 def get_task(task_id: int):
     with contextlib.closing(get_db()) as conn:

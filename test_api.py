@@ -71,6 +71,22 @@ def test_filter_by_done():
     assert len(all_tasks) == len(done_tasks) + len(pending_tasks)
 
 
+def test_stats():
+    r = client.get("/tasks/stats")
+    assert r.status_code == 200
+    before = r.json()
+
+    client.post("/tasks", json={"title": "Stats pending"})
+    r = client.post("/tasks", json={"title": "Stats done"})
+    client.post(f"/tasks/{r.json()['id']}/complete")
+
+    stats = client.get("/tasks/stats").json()
+    assert stats["total"] == before["total"] + 2
+    assert stats["done"] == before["done"] + 1
+    assert stats["pending"] == before["pending"] + 1
+    assert stats["total"] == stats["done"] + stats["pending"]
+
+
 def test_delete_completed():
     client.post("/tasks", json={"title": "Pending"})
     r = client.post("/tasks", json={"title": "Done A"})
