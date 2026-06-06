@@ -110,6 +110,21 @@ def test_filter_by_priority():
     assert client.get("/tasks?priority=critical").status_code == 422
 
 
+def test_upcoming():
+    future_id = client.post("/tasks", json={"title": "Upcoming", "due_date": "2099-12-31"}).json()["id"]
+    past_id = client.post("/tasks", json={"title": "Overdue", "due_date": "2020-01-01"}).json()["id"]
+    no_date_id = client.post("/tasks", json={"title": "No date"}).json()["id"]
+    done_id = client.post("/tasks", json={"title": "Upcoming but done", "due_date": "2099-01-01"}).json()["id"]
+    client.post(f"/tasks/{done_id}/complete")
+
+    upcoming_ids = {t["id"] for t in client.get("/tasks/upcoming").json()}
+    assert future_id in upcoming_ids
+    assert past_id not in upcoming_ids
+    assert no_date_id not in upcoming_ids
+    assert done_id not in upcoming_ids
+    assert all(t["done"] is False for t in client.get("/tasks/upcoming").json())
+
+
 def test_overdue():
     client.post("/tasks", json={"title": "Overdue", "due_date": "2020-01-01"})
     client.post("/tasks", json={"title": "Future", "due_date": "2099-12-31"})

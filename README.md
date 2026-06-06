@@ -29,7 +29,8 @@ La documentation interactive Swagger est accessible sur `http://localhost:8000/d
 | Méthode  | Route           | Description              |
 |----------|-----------------|--------------------------|
 | `GET`    | `/tasks`        | Lister toutes les tâches (params : `?done=true\|false`, `?priority=low\|medium\|high`, combinables) |
-| `GET`    | `/tasks/overdue` | Tâches en retard (due_date dépassée, non terminées), triées par date |
+| `GET`    | `/tasks/overdue`  | Tâches en retard (due_date dépassée, non terminées), triées par date |
+| `GET`    | `/tasks/upcoming` | Tâches à venir (due_date >= aujourd'hui, non terminées), triées par date |
 | `GET`    | `/tasks/stats`  | Nombre de tâches total, terminées et en cours |
 | `POST`   | `/tasks`        | Créer une tâche          |
 | `GET`    | `/tasks/{id}`   | Récupérer une tâche      |

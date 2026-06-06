@@ -122,6 +122,17 @@ def get_overdue_tasks():
     return [row_to_task(r) for r in rows]
 
 
+@app.get("/tasks/upcoming", response_model=list[Task])
+def get_upcoming_tasks():
+    today = date.today().isoformat()
+    with contextlib.closing(get_db()) as conn:
+        rows = conn.execute(
+            "SELECT * FROM tasks WHERE due_date >= ? AND done = 0 ORDER BY due_date ASC",
+            (today,),
+        ).fetchall()
+    return [row_to_task(r) for r in rows]
+
+
 @app.get("/tasks/stats")
 def get_stats():
     with contextlib.closing(get_db()) as conn:
