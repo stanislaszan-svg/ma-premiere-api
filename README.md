@@ -33,6 +33,7 @@ La documentation interactive Swagger est accessible sur `http://localhost:8000/d
 | `POST`   | `/tasks`        | Créer une tâche          |
 | `GET`    | `/tasks/{id}`   | Récupérer une tâche      |
 | `PUT`    | `/tasks/{id}`   | Modifier une tâche       |
+| `PATCH`  | `/tasks/{id}`   | Modifier partiellement une tâche |
 | `POST`   | `/tasks/{id}/complete` | Marquer une tâche comme terminée |
 | `DELETE` | `/tasks/completed` | Supprimer toutes les tâches terminées |
 | `DELETE` | `/tasks/{id}`   | Supprimer une tâche      |

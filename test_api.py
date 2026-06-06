@@ -87,6 +87,23 @@ def test_stats():
     assert stats["total"] == stats["done"] + stats["pending"]
 
 
+def test_patch_task():
+    r = client.post("/tasks", json={"title": "Original", "description": "Desc"})
+    task_id = r.json()["id"]
+
+    r = client.patch(f"/tasks/{task_id}", json={"title": "Patched"})
+    assert r.status_code == 200
+    assert r.json()["title"] == "Patched"
+    assert r.json()["description"] == "Desc"  # inchangé
+
+    r = client.patch(f"/tasks/{task_id}", json={"done": True})
+    assert r.json()["done"] is True
+    assert r.json()["title"] == "Patched"  # inchangé
+
+    assert client.patch("/tasks/999999", json={"title": "x"}).status_code == 404
+    assert client.patch(f"/tasks/{task_id}", json={}).status_code == 422
+
+
 def test_delete_completed():
     client.post("/tasks", json={"title": "Pending"})
     r = client.post("/tasks", json={"title": "Done A"})

@@ -102,8 +102,7 @@ def get_task(task_id: int):
     return row_to_task(row)
 
 
-@app.put("/tasks/{task_id}", response_model=Task)
-def update_task(task_id: int, body: TaskUpdate):
+def _apply_update(task_id: int, body: TaskUpdate) -> Task:
     fields, values = [], []
     if body.title is not None:
         fields.append("title = ?")
@@ -124,6 +123,16 @@ def update_task(task_id: int, body: TaskUpdate):
     if row is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return row_to_task(row)
+
+
+@app.put("/tasks/{task_id}", response_model=Task)
+def update_task(task_id: int, body: TaskUpdate):
+    return _apply_update(task_id, body)
+
+
+@app.patch("/tasks/{task_id}", response_model=Task)
+def patch_task(task_id: int, body: TaskUpdate):
+    return _apply_update(task_id, body)
 
 
 @app.post("/tasks/{task_id}/complete", response_model=Task)
