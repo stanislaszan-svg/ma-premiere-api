@@ -157,8 +157,8 @@ def get_today_tasks():
 def search_tasks(q: str):
     with contextlib.closing(get_db()) as conn:
         rows = conn.execute(
-            "SELECT * FROM tasks WHERE title LIKE ? ORDER BY created_at DESC",
-            (f"%{q}%",),
+            "SELECT * FROM tasks WHERE title LIKE ? OR description LIKE ? ORDER BY created_at DESC",
+            (f"%{q}%", f"%{q}%"),
         ).fetchall()
     return [row_to_task(r) for r in rows]
 

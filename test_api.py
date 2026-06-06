@@ -201,6 +201,13 @@ def test_search():
     assert len(client.get("/tasks/search?q=sport").json()) >= 1
     assert client.get("/tasks/search?q=xyzimpossible").json() == []
 
+    # recherche dans la description
+    client.post("/tasks", json={"title": "Tâche X", "description": "contient le mot lait"})
+    results = client.get("/tasks/search?q=lait").json()
+    titles = [t["title"] for t in results]
+    assert "Acheter du lait" in titles
+    assert "Tâche X" in titles  # trouvé via description
+
     r = client.get("/tasks/search")
     assert r.status_code == 422  # q est obligatoire
 
