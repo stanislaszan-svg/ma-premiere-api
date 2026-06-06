@@ -182,12 +182,31 @@ def get_stats():
                 ORDER BY j.value ASC
             """).fetchall()
         }
+        today = date.today().isoformat()
+        by_due_date = {
+            row["due_date"]: {"total": row["total"], "done": row["done"], "pending": row["total"] - row["done"]}
+            for row in conn.execute("""
+                SELECT due_date, COUNT(*) as total, SUM(done) as done
+                FROM tasks
+                WHERE due_date IS NOT NULL
+                GROUP BY due_date
+                ORDER BY due_date ASC
+            """).fetchall()
+        }
+        due_date_summary = {
+            "overdue":  conn.execute("SELECT COUNT(*) FROM tasks WHERE due_date < ? AND done = 0", (today,)).fetchone()[0],
+            "today":    conn.execute("SELECT COUNT(*) FROM tasks WHERE due_date = ? AND done = 0", (today,)).fetchone()[0],
+            "upcoming": conn.execute("SELECT COUNT(*) FROM tasks WHERE due_date > ? AND done = 0", (today,)).fetchone()[0],
+            "no_date":  conn.execute("SELECT COUNT(*) FROM tasks WHERE due_date IS NULL").fetchone()[0],
+        }
     return {
         "total": total,
         "done": done,
         "pending": total - done,
         "by_priority": {p: by_priority.get(p, {"total": 0, "done": 0, "pending": 0}) for p in ("high", "medium", "low")},
         "by_tag": by_tag,
+        "by_due_date": by_due_date,
+        "due_date_summary": due_date_summary,
     }
 
 

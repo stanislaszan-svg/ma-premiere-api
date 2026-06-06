@@ -1,5 +1,6 @@
 """Quick smoke tests — run with: pytest test_api.py"""
 import pytest
+from datetime import date
 from fastapi.testclient import TestClient
 from main import app
 
@@ -101,6 +102,21 @@ def test_stats():
         assert v["total"] == v["done"] + v["pending"]
     assert list(bt.keys()) == sorted(bt.keys())
 
+    client.post("/tasks", json={"title": "Due today stats", "due_date": date.today().isoformat()})
+    client.post("/tasks", json={"title": "Due future stats", "due_date": "2099-01-01"})
+    client.post("/tasks", json={"title": "Due past stats", "due_date": "2020-01-01"})
+    stats = client.get("/tasks/stats").json()
+    bdd = stats["by_due_date"]
+    ds = stats["due_date_summary"]
+    assert isinstance(bdd, dict)
+    assert list(bdd.keys()) == sorted(bdd.keys())
+    for v in bdd.values():
+        assert v["total"] == v["done"] + v["pending"]
+    assert all(k in ds for k in ("overdue", "today", "upcoming", "no_date"))
+    assert ds["overdue"] >= 1
+    assert ds["today"] >= 1
+    assert ds["upcoming"] >= 1
+
 
 def test_filter_by_priority():
     client.post("/tasks", json={"title": "High 1", "priority": "high"})
@@ -125,7 +141,6 @@ def test_filter_by_priority():
 
 
 def test_today():
-    from datetime import date
     today = date.today().isoformat()
 
     today_id = client.post("/tasks", json={"title": "Today task", "due_date": today}).json()["id"]
