@@ -44,6 +44,19 @@ def test_delete_task():
     assert r.status_code == 404
 
 
+def test_complete_task():
+    r = client.post("/tasks", json={"title": "To complete"})
+    task_id = r.json()["id"]
+    assert r.json()["done"] is False
+
+    r = client.post(f"/tasks/{task_id}/complete")
+    assert r.status_code == 200
+    assert r.json()["done"] is True
+
+    r = client.post("/tasks/999999/complete")
+    assert r.status_code == 404
+
+
 def test_filter_by_done():
     client.post("/tasks", json={"title": "Pending task"})
     r = client.post("/tasks", json={"title": "Done task"})
