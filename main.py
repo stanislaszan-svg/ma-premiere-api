@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Literal, Optional
+from datetime import date
 import sqlite3
 import contextlib
 
@@ -29,11 +30,15 @@ def init_db():
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """)
-        # migration pour les bases existantes
-        try:
-            conn.execute("ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'")
-        except sqlite3.OperationalError:
-            pass
+        # migrations pour les bases existantes
+        for migration in [
+            "ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'",
+            "ALTER TABLE tasks ADD COLUMN due_date TEXT",
+        ]:
+            try:
+                conn.execute(migration)
+            except sqlite3.OperationalError:
+                pass
         conn.commit()
 
 
@@ -44,6 +49,7 @@ class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
     priority: Priority = "medium"
+    due_date: Optional[date] = None
 
 
 class TaskUpdate(BaseModel):
@@ -51,6 +57,7 @@ class TaskUpdate(BaseModel):
     description: Optional[str] = None
     done: Optional[bool] = None
     priority: Optional[Priority] = None
+    due_date: Optional[date] = None
 
 
 class Task(BaseModel):
@@ -59,6 +66,7 @@ class Task(BaseModel):
     description: Optional[str]
     done: bool
     priority: Priority
+    due_date: Optional[date]
     created_at: str
 
 
@@ -69,6 +77,7 @@ def row_to_task(row: sqlite3.Row) -> Task:
         description=row["description"],
         done=bool(row["done"]),
         priority=row["priority"],
+        due_date=date.fromisoformat(row["due_date"]) if row["due_date"] else None,
         created_at=row["created_at"],
     )
 
@@ -94,8 +103,8 @@ def list_tasks(done: Optional[bool] = None, priority: Optional[Priority] = None)
 def create_task(body: TaskCreate):
     with contextlib.closing(get_db()) as conn:
         cur = conn.execute(
-            "INSERT INTO tasks (title, description, priority) VALUES (?, ?, ?)",
-            (body.title, body.description, body.priority),
+            "INSERT INTO tasks (title, description, priority, due_date) VALUES (?, ?, ?, ?)",
+            (body.title, body.description, body.priority, body.due_date.isoformat() if body.due_date else None),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM tasks WHERE id = ?", (cur.lastrowid,)).fetchone()
@@ -133,6 +142,9 @@ def _apply_update(task_id: int, body: TaskUpdate) -> Task:
     if body.priority is not None:
         fields.append("priority = ?")
         values.append(body.priority)
+    if body.due_date is not None:
+        fields.append("due_date = ?")
+        values.append(body.due_date.isoformat())
     if not fields:
         raise HTTPException(status_code=422, detail="No fields to update")
     values.append(task_id)

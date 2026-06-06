@@ -110,6 +110,22 @@ def test_filter_by_priority():
     assert client.get("/tasks?priority=critical").status_code == 422
 
 
+def test_due_date():
+    r = client.post("/tasks", json={"title": "With date", "due_date": "2026-12-31"})
+    assert r.status_code == 201
+    assert r.json()["due_date"] == "2026-12-31"
+
+    r = client.post("/tasks", json={"title": "No date"})
+    assert r.json()["due_date"] is None
+
+    task_id = r.json()["id"]
+    r = client.patch(f"/tasks/{task_id}", json={"due_date": "2026-06-30"})
+    assert r.json()["due_date"] == "2026-06-30"
+
+    r = client.post("/tasks", json={"title": "Bad date", "due_date": "not-a-date"})
+    assert r.status_code == 422
+
+
 def test_priority():
     r = client.post("/tasks", json={"title": "Urgent", "priority": "high"})
     assert r.status_code == 201

@@ -48,7 +48,7 @@ curl -X POST http://localhost:8000/tasks \
   -d '{"title": "Acheter du lait", "description": "2 litres", "priority": "high"}'
 ```
 
-`priority` accepte `"low"`, `"medium"` (défaut), `"high"`.
+`priority` accepte `"low"`, `"medium"` (défaut), `"high"`. `due_date` est optionnel, format ISO 8601 (`YYYY-MM-DD`).
 
 **Marquer comme terminée**
 ```bash
