@@ -146,6 +146,17 @@ def complete_task(task_id: int):
     return row_to_task(row)
 
 
+@app.post("/tasks/{task_id}/reopen", response_model=Task)
+def reopen_task(task_id: int):
+    with contextlib.closing(get_db()) as conn:
+        cur = conn.execute("UPDATE tasks SET done = 0 WHERE id = ?", (task_id,))
+        conn.commit()
+        if cur.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Task not found")
+        row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    return row_to_task(row)
+
+
 @app.delete("/tasks/completed", status_code=200)
 def delete_completed_tasks():
     with contextlib.closing(get_db()) as conn:

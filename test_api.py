@@ -104,6 +104,18 @@ def test_patch_task():
     assert client.patch(f"/tasks/{task_id}", json={}).status_code == 422
 
 
+def test_reopen_task():
+    r = client.post("/tasks", json={"title": "To reopen"})
+    task_id = r.json()["id"]
+    client.post(f"/tasks/{task_id}/complete")
+
+    r = client.post(f"/tasks/{task_id}/reopen")
+    assert r.status_code == 200
+    assert r.json()["done"] is False
+
+    assert client.post("/tasks/999999/reopen").status_code == 404
+
+
 def test_delete_completed():
     client.post("/tasks", json={"title": "Pending"})
     r = client.post("/tasks", json={"title": "Done A"})
