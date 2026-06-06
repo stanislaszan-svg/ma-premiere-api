@@ -139,6 +139,28 @@ curl http://localhost:8000/tasks/1/history
 curl http://localhost:8000/tasks/stats
 ```
 
+## Données de démonstration
+
+Pour peupler la base avec 53 tâches d'exemple (toutes priorités, tags, dates et statuts représentés) :
+
+```bash
+python seed_tasks.py
+```
+
+Pour repartir d'une base vierge avant de re-seeder :
+
+```bash
+python -c "
+import sqlite3, contextlib
+with contextlib.closing(sqlite3.connect('tasks.db')) as conn:
+    conn.execute('DELETE FROM task_history')
+    conn.execute('DELETE FROM tasks')
+    conn.execute('DELETE FROM sqlite_sequence WHERE name IN (\"tasks\",\"task_history\")')
+    conn.commit()
+"
+python seed_tasks.py
+```
+
 ## Tests
 
 ```bash
