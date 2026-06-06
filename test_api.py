@@ -208,6 +208,13 @@ def test_search():
     assert "Acheter du lait" in titles
     assert "Tâche X" in titles  # trouvé via description
 
+    # recherche dans les tags
+    r = client.post("/tasks", json={"title": "Tâche Y", "tags": ["courses", "urgent"]})
+    tag_id = r.json()["id"]
+    results = client.get("/tasks/search?q=courses").json()
+    assert any(t["id"] == tag_id for t in results)  # trouvé via tag
+    assert not any(t["title"] == "Faire du sport" for t in results)
+
     r = client.get("/tasks/search")
     assert r.status_code == 422  # q est obligatoire
 
