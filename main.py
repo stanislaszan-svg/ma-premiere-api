@@ -266,6 +266,16 @@ def get_task_history(task_id: int):
     return [HistoryEntry(**dict(r)) for r in rows]
 
 
+@app.delete("/tasks/{task_id}/history", status_code=200)
+def delete_task_history(task_id: int):
+    with contextlib.closing(get_db()) as conn:
+        if conn.execute("SELECT 1 FROM tasks WHERE id = ?", (task_id,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        cur = conn.execute("DELETE FROM task_history WHERE task_id = ?", (task_id,))
+        conn.commit()
+    return {"deleted": cur.rowcount}
+
+
 @app.get("/tasks/{task_id}", response_model=Task)
 def get_task(task_id: int):
     with contextlib.closing(get_db()) as conn:

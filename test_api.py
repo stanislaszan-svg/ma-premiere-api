@@ -382,6 +382,30 @@ def test_history():
     assert len(client.get(f"/tasks/{task_id}/history").json()) == count_before
 
 
+def test_delete_history():
+    r = client.post("/tasks", json={"title": "Delete history task"})
+    task_id = r.json()["id"]
+
+    # pas d'historique → deleted: 0
+    r = client.delete(f"/tasks/{task_id}/history")
+    assert r.status_code == 200
+    assert r.json()["deleted"] == 0
+
+    # générer 2 entrées
+    client.patch(f"/tasks/{task_id}", json={"priority": "high"})
+    client.post(f"/tasks/{task_id}/complete")
+    assert len(client.get(f"/tasks/{task_id}/history").json()) == 2
+
+    # effacer
+    r = client.delete(f"/tasks/{task_id}/history")
+    assert r.status_code == 200
+    assert r.json()["deleted"] == 2
+    assert client.get(f"/tasks/{task_id}/history").json() == []
+
+    # 404 sur tâche inexistante
+    assert client.delete("/tasks/999999/history").status_code == 404
+
+
 def test_not_found():
     assert client.get("/tasks/999999").status_code == 404
     assert client.put("/tasks/999999", json={"title": "x"}).status_code == 404
