@@ -129,6 +129,14 @@ def complete_task(task_id: int):
     return row_to_task(row)
 
 
+@app.delete("/tasks/completed", status_code=200)
+def delete_completed_tasks():
+    with contextlib.closing(get_db()) as conn:
+        cur = conn.execute("DELETE FROM tasks WHERE done = 1")
+        conn.commit()
+    return {"deleted": cur.rowcount}
+
+
 @app.delete("/tasks/{task_id}", status_code=204)
 def delete_task(task_id: int):
     with contextlib.closing(get_db()) as conn:

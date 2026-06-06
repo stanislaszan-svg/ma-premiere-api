@@ -71,6 +71,20 @@ def test_filter_by_done():
     assert len(all_tasks) == len(done_tasks) + len(pending_tasks)
 
 
+def test_delete_completed():
+    client.post("/tasks", json={"title": "Pending"})
+    r = client.post("/tasks", json={"title": "Done A"})
+    client.post(f"/tasks/{r.json()['id']}/complete")
+    r = client.post("/tasks", json={"title": "Done B"})
+    client.post(f"/tasks/{r.json()['id']}/complete")
+
+    r = client.delete("/tasks/completed")
+    assert r.status_code == 200
+    assert r.json()["deleted"] >= 2
+
+    assert all(t["done"] is False for t in client.get("/tasks").json())
+
+
 def test_not_found():
     assert client.get("/tasks/999999").status_code == 404
     assert client.put("/tasks/999999", json={"title": "x"}).status_code == 404
