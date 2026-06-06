@@ -1,12 +1,14 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Optional
+from typing import Literal, Optional
 import sqlite3
 import contextlib
 
 app = FastAPI(title="Task Manager API", version="1.0.0")
 
 DB_PATH = "tasks.db"
+
+Priority = Literal["low", "medium", "high"]
 
 
 def get_db():
@@ -23,9 +25,15 @@ def init_db():
                 title TEXT NOT NULL,
                 description TEXT,
                 done INTEGER NOT NULL DEFAULT 0,
+                priority TEXT NOT NULL DEFAULT 'medium',
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """)
+        # migration pour les bases existantes
+        try:
+            conn.execute("ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'")
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
 
 
@@ -35,12 +43,14 @@ init_db()
 class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
+    priority: Priority = "medium"
 
 
 class TaskUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     done: Optional[bool] = None
+    priority: Optional[Priority] = None
 
 
 class Task(BaseModel):
@@ -48,6 +58,7 @@ class Task(BaseModel):
     title: str
     description: Optional[str]
     done: bool
+    priority: Priority
     created_at: str
 
 
@@ -57,6 +68,7 @@ def row_to_task(row: sqlite3.Row) -> Task:
         title=row["title"],
         description=row["description"],
         done=bool(row["done"]),
+        priority=row["priority"],
         created_at=row["created_at"],
     )
 
@@ -77,8 +89,8 @@ def list_tasks(done: Optional[bool] = None):
 def create_task(body: TaskCreate):
     with contextlib.closing(get_db()) as conn:
         cur = conn.execute(
-            "INSERT INTO tasks (title, description) VALUES (?, ?)",
-            (body.title, body.description),
+            "INSERT INTO tasks (title, description, priority) VALUES (?, ?, ?)",
+            (body.title, body.description, body.priority),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM tasks WHERE id = ?", (cur.lastrowid,)).fetchone()
@@ -113,6 +125,9 @@ def _apply_update(task_id: int, body: TaskUpdate) -> Task:
     if body.done is not None:
         fields.append("done = ?")
         values.append(int(body.done))
+    if body.priority is not None:
+        fields.append("priority = ?")
+        values.append(body.priority)
     if not fields:
         raise HTTPException(status_code=422, detail="No fields to update")
     values.append(task_id)

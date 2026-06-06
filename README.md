@@ -45,8 +45,10 @@ La documentation interactive Swagger est accessible sur `http://localhost:8000/d
 ```bash
 curl -X POST http://localhost:8000/tasks \
   -H "Content-Type: application/json" \
-  -d '{"title": "Acheter du lait", "description": "2 litres"}'
+  -d '{"title": "Acheter du lait", "description": "2 litres", "priority": "high"}'
 ```
+
+`priority` accepte `"low"`, `"medium"` (défaut), `"high"`.
 
 **Marquer comme terminée**
 ```bash

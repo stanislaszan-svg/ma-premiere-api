@@ -12,6 +12,7 @@ def test_create_and_list():
     task = r.json()
     assert task["title"] == "Buy milk"
     assert task["done"] is False
+    assert task["priority"] == "medium"  # défaut
 
     r = client.get("/tasks")
     assert r.status_code == 200
@@ -85,6 +86,22 @@ def test_stats():
     assert stats["done"] == before["done"] + 1
     assert stats["pending"] == before["pending"] + 1
     assert stats["total"] == stats["done"] + stats["pending"]
+
+
+def test_priority():
+    r = client.post("/tasks", json={"title": "Urgent", "priority": "high"})
+    assert r.status_code == 201
+    assert r.json()["priority"] == "high"
+
+    r = client.post("/tasks", json={"title": "Low prio", "priority": "low"})
+    assert r.json()["priority"] == "low"
+
+    task_id = r.json()["id"]
+    r = client.patch(f"/tasks/{task_id}", json={"priority": "high"})
+    assert r.json()["priority"] == "high"
+
+    r = client.post("/tasks", json={"title": "Bad prio", "priority": "critical"})
+    assert r.status_code == 422
 
 
 def test_patch_task():
