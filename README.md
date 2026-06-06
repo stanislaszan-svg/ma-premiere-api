@@ -83,6 +83,7 @@ L'application inclut un frontend complet servi directement par FastAPI (`/`).
 | Méthode | Route | Description |
 |---------|-------|-------------|
 | `GET` | `/tasks/{id}/history` | Historique des modifications d'une tâche (champ, ancienne valeur, nouvelle valeur, horodatage) |
+| `DELETE` | `/tasks/{id}/history` | Effacer l'historique d'une tâche — retourne `{"deleted": N}` |
 
 ### Statistiques
 
