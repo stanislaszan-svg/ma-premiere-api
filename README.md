@@ -78,6 +78,12 @@ L'application inclut un frontend complet servi directement par FastAPI (`/`).
 | `GET` | `/tasks/search?q=` | Recherche plein texte : titre, description et tags |
 | `GET` | `/tasks/tags` | Lister tous les tags distincts, triés alphabétiquement |
 
+### Historique
+
+| Méthode | Route | Description |
+|---------|-------|-------------|
+| `GET` | `/tasks/{id}/history` | Historique des modifications d'une tâche (champ, ancienne valeur, nouvelle valeur, horodatage) |
+
 ### Statistiques
 
 | Méthode | Route | Description |
@@ -120,6 +126,11 @@ curl "http://localhost:8000/tasks?priority=high&done=false"
 **Recherche plein texte**
 ```bash
 curl "http://localhost:8000/tasks/search?q=réunion"
+```
+
+**Historique des modifications**
+```bash
+curl http://localhost:8000/tasks/1/history
 ```
 
 **Statistiques**
