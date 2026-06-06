@@ -149,7 +149,18 @@ def get_stats():
     with contextlib.closing(get_db()) as conn:
         total = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()[0]
         done = conn.execute("SELECT COUNT(*) FROM tasks WHERE done = 1").fetchone()[0]
-    return {"total": total, "done": done, "pending": total - done}
+        by_priority = {
+            row["priority"]: {"total": row["total"], "done": row["done"], "pending": row["total"] - row["done"]}
+            for row in conn.execute(
+                "SELECT priority, COUNT(*) as total, SUM(done) as done FROM tasks GROUP BY priority"
+            ).fetchall()
+        }
+    return {
+        "total": total,
+        "done": done,
+        "pending": total - done,
+        "by_priority": {p: by_priority.get(p, {"total": 0, "done": 0, "pending": 0}) for p in ("high", "medium", "low")},
+    }
 
 
 @app.get("/tasks/{task_id}", response_model=Task)

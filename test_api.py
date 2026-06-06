@@ -77,8 +77,8 @@ def test_stats():
     assert r.status_code == 200
     before = r.json()
 
-    client.post("/tasks", json={"title": "Stats pending"})
-    r = client.post("/tasks", json={"title": "Stats done"})
+    client.post("/tasks", json={"title": "Stats pending", "priority": "high"})
+    r = client.post("/tasks", json={"title": "Stats done", "priority": "high"})
     client.post(f"/tasks/{r.json()['id']}/complete")
 
     stats = client.get("/tasks/stats").json()
@@ -86,6 +86,12 @@ def test_stats():
     assert stats["done"] == before["done"] + 1
     assert stats["pending"] == before["pending"] + 1
     assert stats["total"] == stats["done"] + stats["pending"]
+
+    bp = stats["by_priority"]
+    assert set(bp.keys()) == {"high", "medium", "low"}
+    for p in bp.values():
+        assert p["total"] == p["done"] + p["pending"]
+    assert bp["high"]["total"] >= 2
 
 
 def test_filter_by_priority():
