@@ -41,6 +41,16 @@ def init_db():
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS task_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                task_id INTEGER NOT NULL,
+                changed_at TEXT NOT NULL DEFAULT (datetime('now')),
+                field TEXT NOT NULL,
+                old_value TEXT,
+                new_value TEXT
+            )
+        """)
         # migrations pour les bases existantes
         for migration in [
             "ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'",
@@ -55,6 +65,15 @@ def init_db():
 
 
 init_db()
+
+
+class HistoryEntry(BaseModel):
+    id: int
+    task_id: int
+    changed_at: str
+    field: str
+    old_value: Optional[str]
+    new_value: Optional[str]
 
 
 class TaskCreate(BaseModel):
@@ -235,6 +254,18 @@ def get_stats():
     }
 
 
+@app.get("/tasks/{task_id}/history", response_model=list[HistoryEntry])
+def get_task_history(task_id: int):
+    with contextlib.closing(get_db()) as conn:
+        if conn.execute("SELECT 1 FROM tasks WHERE id = ?", (task_id,)).fetchone() is None:
+            raise HTTPException(status_code=404, detail="Task not found")
+        rows = conn.execute(
+            "SELECT * FROM task_history WHERE task_id = ? ORDER BY changed_at DESC",
+            (task_id,),
+        ).fetchall()
+    return [HistoryEntry(**dict(r)) for r in rows]
+
+
 @app.get("/tasks/{task_id}", response_model=Task)
 def get_task(task_id: int):
     with contextlib.closing(get_db()) as conn:
@@ -242,6 +273,18 @@ def get_task(task_id: int):
     if row is None:
         raise HTTPException(status_code=404, detail="Task not found")
     return row_to_task(row)
+
+
+def _log_changes(conn, task_id: int, old: sqlite3.Row, new: sqlite3.Row):
+    watched = ["title", "description", "done", "priority", "due_date", "tags"]
+    for field in watched:
+        ov, nv = old[field], new[field]
+        if str(ov) != str(nv):
+            conn.execute(
+                "INSERT INTO task_history (task_id, field, old_value, new_value) VALUES (?, ?, ?, ?)",
+                (task_id, field, str(ov) if ov is not None else None,
+                 str(nv) if nv is not None else None),
+            )
 
 
 def _apply_update(task_id: int, body: TaskUpdate) -> Task:
@@ -268,12 +311,14 @@ def _apply_update(task_id: int, body: TaskUpdate) -> Task:
         raise HTTPException(status_code=422, detail="No fields to update")
     values.append(task_id)
     with contextlib.closing(get_db()) as conn:
+        old = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        if old is None:
+            raise HTTPException(status_code=404, detail="Task not found")
         conn.execute(f"UPDATE tasks SET {', '.join(fields)} WHERE id = ?", values)
+        new = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        _log_changes(conn, task_id, old, new)
         conn.commit()
-        row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
-    if row is None:
-        raise HTTPException(status_code=404, detail="Task not found")
-    return row_to_task(row)
+    return row_to_task(new)
 
 
 @app.put("/tasks/{task_id}", response_model=Task)
@@ -289,23 +334,27 @@ def patch_task(task_id: int, body: TaskUpdate):
 @app.post("/tasks/{task_id}/complete", response_model=Task)
 def complete_task(task_id: int):
     with contextlib.closing(get_db()) as conn:
-        cur = conn.execute("UPDATE tasks SET done = 1 WHERE id = ?", (task_id,))
-        conn.commit()
-        if cur.rowcount == 0:
+        old = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        if old is None:
             raise HTTPException(status_code=404, detail="Task not found")
-        row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
-    return row_to_task(row)
+        conn.execute("UPDATE tasks SET done = 1 WHERE id = ?", (task_id,))
+        new = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        _log_changes(conn, task_id, old, new)
+        conn.commit()
+    return row_to_task(new)
 
 
 @app.post("/tasks/{task_id}/reopen", response_model=Task)
 def reopen_task(task_id: int):
     with contextlib.closing(get_db()) as conn:
-        cur = conn.execute("UPDATE tasks SET done = 0 WHERE id = ?", (task_id,))
-        conn.commit()
-        if cur.rowcount == 0:
+        old = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        if old is None:
             raise HTTPException(status_code=404, detail="Task not found")
-        row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
-    return row_to_task(row)
+        conn.execute("UPDATE tasks SET done = 0 WHERE id = ?", (task_id,))
+        new = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+        _log_changes(conn, task_id, old, new)
+        conn.commit()
+    return row_to_task(new)
 
 
 @app.delete("/tasks/completed", status_code=200)
