@@ -163,6 +163,20 @@ def test_overdue():
     assert not any(t["title"] == "Overdue but done" for t in overdue)
 
 
+def test_list_tags():
+    client.post("/tasks", json={"title": "T1", "tags": ["work", "urgent"]})
+    client.post("/tasks", json={"title": "T2", "tags": ["home", "work"]})
+    client.post("/tasks", json={"title": "T3", "tags": []})
+
+    tags = client.get("/tasks/tags").json()
+    assert isinstance(tags, list)
+    assert "work" in tags
+    assert "urgent" in tags
+    assert "home" in tags
+    assert tags == sorted(tags)        # triés alphabétiquement
+    assert len(tags) == len(set(tags)) # pas de doublons
+
+
 def test_filter_by_tag():
     a = client.post("/tasks", json={"title": "Work task", "tags": ["work", "urgent"]}).json()["id"]
     b = client.post("/tasks", json={"title": "Home task", "tags": ["home"]}).json()["id"]

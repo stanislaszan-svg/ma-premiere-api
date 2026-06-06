@@ -153,6 +153,15 @@ def get_today_tasks():
     return [row_to_task(r) for r in rows]
 
 
+@app.get("/tasks/tags", response_model=list[str])
+def list_tags():
+    with contextlib.closing(get_db()) as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT value FROM tasks, json_each(tasks.tags) ORDER BY value ASC"
+        ).fetchall()
+    return [row[0] for row in rows]
+
+
 @app.get("/tasks/stats")
 def get_stats():
     with contextlib.closing(get_db()) as conn:
