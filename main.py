@@ -4,6 +4,7 @@ from typing import Literal, Optional
 from datetime import date
 import sqlite3
 import contextlib
+import json
 
 app = FastAPI(title="Task Manager API", version="1.0.0")
 
@@ -34,6 +35,7 @@ def init_db():
         for migration in [
             "ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'",
             "ALTER TABLE tasks ADD COLUMN due_date TEXT",
+            "ALTER TABLE tasks ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'",
         ]:
             try:
                 conn.execute(migration)
@@ -50,6 +52,7 @@ class TaskCreate(BaseModel):
     description: Optional[str] = None
     priority: Priority = "medium"
     due_date: Optional[date] = None
+    tags: list[str] = []
 
 
 class TaskUpdate(BaseModel):
@@ -58,6 +61,7 @@ class TaskUpdate(BaseModel):
     done: Optional[bool] = None
     priority: Optional[Priority] = None
     due_date: Optional[date] = None
+    tags: Optional[list[str]] = None
 
 
 class Task(BaseModel):
@@ -67,6 +71,7 @@ class Task(BaseModel):
     done: bool
     priority: Priority
     due_date: Optional[date]
+    tags: list[str]
     created_at: str
 
 
@@ -78,6 +83,7 @@ def row_to_task(row: sqlite3.Row) -> Task:
         done=bool(row["done"]),
         priority=row["priority"],
         due_date=date.fromisoformat(row["due_date"]) if row["due_date"] else None,
+        tags=json.loads(row["tags"] or "[]"),
         created_at=row["created_at"],
     )
 
@@ -103,8 +109,8 @@ def list_tasks(done: Optional[bool] = None, priority: Optional[Priority] = None)
 def create_task(body: TaskCreate):
     with contextlib.closing(get_db()) as conn:
         cur = conn.execute(
-            "INSERT INTO tasks (title, description, priority, due_date) VALUES (?, ?, ?, ?)",
-            (body.title, body.description, body.priority, body.due_date.isoformat() if body.due_date else None),
+            "INSERT INTO tasks (title, description, priority, due_date, tags) VALUES (?, ?, ?, ?, ?)",
+            (body.title, body.description, body.priority, body.due_date.isoformat() if body.due_date else None, json.dumps(body.tags)),
         )
         conn.commit()
         row = conn.execute("SELECT * FROM tasks WHERE id = ?", (cur.lastrowid,)).fetchone()
@@ -189,6 +195,9 @@ def _apply_update(task_id: int, body: TaskUpdate) -> Task:
     if body.due_date is not None:
         fields.append("due_date = ?")
         values.append(body.due_date.isoformat())
+    if body.tags is not None:
+        fields.append("tags = ?")
+        values.append(json.dumps(body.tags))
     if not fields:
         raise HTTPException(status_code=422, detail="No fields to update")
     values.append(task_id)

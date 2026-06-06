@@ -163,6 +163,22 @@ def test_overdue():
     assert not any(t["title"] == "Overdue but done" for t in overdue)
 
 
+def test_tags():
+    r = client.post("/tasks", json={"title": "Tagged", "tags": ["work", "urgent"]})
+    assert r.status_code == 201
+    assert r.json()["tags"] == ["work", "urgent"]
+
+    r = client.post("/tasks", json={"title": "No tags"})
+    assert r.json()["tags"] == []
+
+    task_id = r.json()["id"]
+    r = client.patch(f"/tasks/{task_id}", json={"tags": ["home", "shopping"]})
+    assert r.json()["tags"] == ["home", "shopping"]
+
+    r = client.patch(f"/tasks/{task_id}", json={"tags": []})
+    assert r.json()["tags"] == []
+
+
 def test_due_date():
     r = client.post("/tasks", json={"title": "With date", "due_date": "2026-12-31"})
     assert r.status_code == 201
