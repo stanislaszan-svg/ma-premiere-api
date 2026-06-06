@@ -1,4 +1,7 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Literal, Optional
 from datetime import date
@@ -7,6 +10,13 @@ import contextlib
 import json
 
 app = FastAPI(title="Task Manager API", version="1.0.0")
+
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.mount("/static", StaticFiles(directory="."), name="static")
+
+@app.get("/")
+def frontend():
+    return FileResponse("index.html")
 
 DB_PATH = "tasks.db"
 

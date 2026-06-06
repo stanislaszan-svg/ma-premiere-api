@@ -1,14 +1,14 @@
-const API = 'http://localhost:8000';
+const API = '';
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
 const state = {
-    tasks: [],
-    stats: {},
-    filter: 'all',
-    query: '',
+    tasks:     [],
+    stats:     {},
+    filter:    'all',
+    query:     '',
     editingId: null,
-    tags: [],
+    formTags:  [],
 };
 
 // ─── HTTP helper ─────────────────────────────────────────────────────────────
@@ -17,7 +17,10 @@ async function http(method, path, body = null) {
     const opts = { method, headers: { 'Content-Type': 'application/json' } };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(API + path, opts);
-    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(`${res.status} – ${msg}`);
+    }
     if (res.status === 204) return null;
     return res.json();
 }
@@ -33,7 +36,7 @@ async function loadStats() {
         state.stats = await http('GET', '/tasks/stats');
         renderStats();
         updateCounts();
-    } catch {
+    } catch (e) {
         showToast('Impossible de joindre l\'API', 'error');
     }
 }
@@ -52,8 +55,8 @@ async function loadTasks() {
             : map[state.filter];
         state.tasks = await http('GET', url);
         renderTasks();
-    } catch {
-        showToast('Erreur lors du chargement des tâches', 'error');
+    } catch (e) {
+        showToast('Erreur de chargement : ' + e.message, 'error');
     }
 }
 
@@ -64,10 +67,10 @@ function renderStats() {
     const overdue = s.due_date_summary?.overdue ?? 0;
 
     document.getElementById('statsGrid').innerHTML = [
-        { icon: '📋', bg: '#eef2ff', color: '#6366f1', value: s.total ?? 0,   label: 'Total' },
-        { icon: '✅', bg: '#ecfdf5', color: '#10b981', value: s.done ?? 0,    label: 'Terminées' },
+        { icon: '📋', bg: '#eef2ff', color: '#6366f1', value: s.total   ?? 0, label: 'Total' },
+        { icon: '✅', bg: '#ecfdf5', color: '#10b981', value: s.done    ?? 0, label: 'Terminées' },
         { icon: '⏳', bg: '#fffbeb', color: '#f59e0b', value: s.pending ?? 0, label: 'En cours' },
-        { icon: '🚨', bg: '#fef2f2', color: '#ef4444', value: overdue,        label: 'En retard' },
+        { icon: '🚨', bg: '#fef2f2', color: '#ef4444', value: overdue,         label: 'En retard' },
     ].map(c => `
         <div class="stat-card">
             <div class="stat-icon" style="background:${c.bg}">${c.icon}</div>
@@ -75,19 +78,17 @@ function renderStats() {
                 <div class="stat-value" style="color:${c.color}">${c.value}</div>
                 <div class="stat-label">${c.label}</div>
             </div>
-        </div>
-    `).join('');
+        </div>`).join('');
 
     const bp = s.by_priority ?? {};
-    const maxTotal = Math.max(...['high','medium','low'].map(k => bp[k]?.total ?? 0), 1);
-    const priorityCfg = [
+    const maxTotal = Math.max(...['high', 'medium', 'low'].map(k => bp[k]?.total ?? 0), 1);
+
+    const priorityHtml = [
         { key: 'high',   label: 'Haute',   color: '#ef4444' },
         { key: 'medium', label: 'Moyenne', color: '#f59e0b' },
         { key: 'low',    label: 'Basse',   color: '#10b981' },
-    ];
-
-    const priorityHtml = priorityCfg.map(({ key, label, color }) => {
-        const d = bp[key] ?? { total: 0, done: 0, pending: 0 };
+    ].map(({ key, label, color }) => {
+        const d = bp[key] ?? { total: 0 };
         const pct = Math.round((d.total / maxTotal) * 100);
         return `
             <div class="priority-row">
@@ -98,9 +99,10 @@ function renderStats() {
     }).join('');
 
     const bt = s.by_tag ?? {};
+    // data-tag stocke la valeur brute — pas d'injection possible via onclick
     const tagHtml = Object.keys(bt).length
         ? Object.entries(bt).map(([tag, d]) => `
-            <span class="tag-stat" onclick="searchByTag('${esc(tag)}')" title="${d.done}/${d.total} terminées">
+            <span class="tag-stat" data-tag="${esc(tag)}" title="${d.done}/${d.total} terminées">
                 ${esc(tag)} <strong>${d.total}</strong>
             </span>`).join('')
         : '<span style="color:var(--text-muted);font-size:13px">Aucun tag</span>';
@@ -116,14 +118,21 @@ function renderStats() {
         </div>`;
 }
 
+// Event delegation — tags dans le dashboard
+document.getElementById('statsDetail').addEventListener('click', e => {
+    const el = e.target.closest('.tag-stat');
+    if (!el) return;
+    searchByTag(el.dataset.tag);
+});
+
 function updateCounts() {
-    const s = state.stats;
+    const s  = state.stats;
     const ds = s.due_date_summary ?? {};
-    document.getElementById('cnt-all').textContent      = s.total   ?? 0;
-    document.getElementById('cnt-done').textContent     = s.done    ?? 0;
-    document.getElementById('cnt-overdue').textContent  = ds.overdue  ?? 0;
-    document.getElementById('cnt-today').textContent    = ds.today    ?? 0;
-    document.getElementById('cnt-upcoming').textContent = ds.upcoming ?? 0;
+    document.getElementById('cnt-all').textContent      = s.total      ?? 0;
+    document.getElementById('cnt-done').textContent     = s.done       ?? 0;
+    document.getElementById('cnt-overdue').textContent  = ds.overdue   ?? 0;
+    document.getElementById('cnt-today').textContent    = ds.today     ?? 0;
+    document.getElementById('cnt-upcoming').textContent = ds.upcoming  ?? 0;
 }
 
 // ─── Render tasks ─────────────────────────────────────────────────────────────
@@ -145,17 +154,19 @@ function taskCard(t) {
     const today = new Date().toISOString().slice(0, 10);
     let dueHtml = '';
     if (t.due_date) {
-        const cls = t.due_date < today ? 'overdue' : t.due_date === today ? 'today' : '';
+        const cls   = t.due_date < today ? 'overdue' : t.due_date === today ? 'today' : '';
         const label = t.due_date === today ? "Aujourd'hui" : fmtDate(t.due_date);
         dueHtml = `<span class="due-badge ${cls}">📅 ${label}</span>`;
     }
     const tags = (t.tags ?? []).map(g => `<span class="tag-badge">${esc(g)}</span>`).join('');
+
+    // data-action + data-id : pas d'injection possible
     const actionBtn = t.done
-        ? `<button class="btn-icon reopen" onclick="doReopen(${t.id})" title="Rouvrir">↩</button>`
-        : `<button class="btn-icon ok"     onclick="doComplete(${t.id})" title="Terminer">✓</button>`;
+        ? `<button class="btn-icon reopen" data-action="reopen"   data-id="${t.id}" title="Rouvrir">↩</button>`
+        : `<button class="btn-icon ok"     data-action="complete" data-id="${t.id}" title="Terminer">✓</button>`;
 
     return `
-        <div class="task-card priority-${t.priority} ${t.done ? 'done' : ''}" id="card-${t.id}">
+        <div class="task-card priority-${t.priority} ${t.done ? 'done' : ''}">
             <div class="card-body">
                 <div class="card-header">
                     <div class="card-title">${esc(t.title)}</div>
@@ -171,39 +182,50 @@ function taskCard(t) {
                 </div>
                 <div class="card-actions">
                     ${actionBtn}
-                    <button class="btn-icon" onclick="openModal(${t.id})" title="Modifier">✎</button>
-                    <button class="btn-icon del" onclick="doDelete(${t.id})" title="Supprimer">🗑</button>
+                    <button class="btn-icon"     data-action="edit"   data-id="${t.id}" title="Modifier">✎</button>
+                    <button class="btn-icon del" data-action="delete" data-id="${t.id}" title="Supprimer">🗑</button>
                 </div>
             </div>
         </div>`;
 }
 
-// ─── Task actions ─────────────────────────────────────────────────────────────
-
-async function doComplete(id) {
-    await http('POST', `/tasks/${id}/complete`);
-    showToast('Tâche terminée ✓', 'success');
-    loadAll();
-}
-
-async function doReopen(id) {
-    await http('POST', `/tasks/${id}/reopen`);
-    showToast('Tâche réouverte', 'info');
-    loadAll();
-}
-
-async function doDelete(id) {
-    if (!confirm('Supprimer cette tâche ?')) return;
-    await http('DELETE', `/tasks/${id}`);
-    showToast('Tâche supprimée', 'error');
-    loadAll();
-}
+// Event delegation — boutons de carte
+document.getElementById('tasksGrid').addEventListener('click', async e => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const id = parseInt(btn.dataset.id);
+    try {
+        switch (btn.dataset.action) {
+            case 'complete':
+                await http('POST', `/tasks/${id}/complete`);
+                showToast('Tâche terminée ✓', 'success');
+                loadAll();
+                break;
+            case 'reopen':
+                await http('POST', `/tasks/${id}/reopen`);
+                showToast('Tâche réouverte', 'info');
+                loadAll();
+                break;
+            case 'edit':
+                openModal(id);
+                break;
+            case 'delete':
+                if (!confirm('Supprimer cette tâche ?')) return;
+                await http('DELETE', `/tasks/${id}`);
+                showToast('Tâche supprimée', 'error');
+                loadAll();
+                break;
+        }
+    } catch (err) {
+        showToast('Erreur : ' + err.message, 'error');
+    }
+});
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
 
 async function openModal(id = null) {
     state.editingId = id;
-    state.tags = [];
+    state.formTags  = [];
 
     document.getElementById('modalTitle').textContent = id ? 'Modifier la tâche' : 'Nouvelle tâche';
     document.getElementById('fTitle').value    = '';
@@ -213,13 +235,18 @@ async function openModal(id = null) {
     renderTagChips();
 
     if (id) {
-        const t = await http('GET', `/tasks/${id}`);
-        document.getElementById('fTitle').value    = t.title;
-        document.getElementById('fDesc').value     = t.description ?? '';
-        document.getElementById('fPriority').value = t.priority;
-        document.getElementById('fDueDate').value  = t.due_date ?? '';
-        state.tags = [...(t.tags ?? [])];
-        renderTagChips();
+        try {
+            const t = await http('GET', `/tasks/${id}`);
+            document.getElementById('fTitle').value    = t.title;
+            document.getElementById('fDesc').value     = t.description ?? '';
+            document.getElementById('fPriority').value = t.priority;
+            document.getElementById('fDueDate').value  = t.due_date ?? '';
+            state.formTags = [...(t.tags ?? [])];
+            renderTagChips();
+        } catch (e) {
+            showToast('Impossible de charger la tâche', 'error');
+            return;
+        }
     }
 
     document.getElementById('overlay').classList.add('open');
@@ -237,14 +264,19 @@ function onOverlayClick(e) {
 
 async function submitForm() {
     const title = document.getElementById('fTitle').value.trim();
-    if (!title) { document.getElementById('fTitle').focus(); return; }
+    if (!title) {
+        document.getElementById('fTitle').focus();
+        document.getElementById('fTitle').style.borderColor = 'var(--high)';
+        setTimeout(() => document.getElementById('fTitle').style.borderColor = '', 1500);
+        return;
+    }
 
     const payload = {
         title,
         description: document.getElementById('fDesc').value.trim() || null,
         priority:    document.getElementById('fPriority').value,
         due_date:    document.getElementById('fDueDate').value || null,
-        tags:        [...state.tags],
+        tags:        [...state.formTags],
     };
 
     try {
@@ -264,40 +296,51 @@ async function submitForm() {
 
 // ─── Tag chip input ───────────────────────────────────────────────────────────
 
-function addTag(raw) {
+function addFormTag(raw) {
     const tag = raw.trim().toLowerCase().replace(/,+$/, '');
-    if (!tag || state.tags.includes(tag)) return false;
-    state.tags.push(tag);
+    if (!tag || state.formTags.includes(tag)) return false;
+    state.formTags.push(tag);
     renderTagChips();
     return true;
 }
 
-function removeTag(tag) {
-    state.tags = state.tags.filter(t => t !== tag);
-    renderTagChips();
-}
-
 function renderTagChips() {
     const wrap = document.getElementById('tagWrap');
-    const chips = state.tags.map(t => `
+    if (!wrap) return;
+
+    // Chips avec data-index — pas d'onclick inline
+    const chips = state.formTags.map((t, i) => `
         <span class="tag-chip">
             ${esc(t)}
-            <button type="button" onclick="removeTag('${esc(t)}')">×</button>
+            <button type="button" class="rm-tag" data-index="${i}">×</button>
         </span>`).join('');
-    wrap.innerHTML = chips + `<input id="tagField" class="tag-field" type="text" placeholder="${state.tags.length ? '' : 'ex: travail, urgent…'}">`;
+
+    wrap.innerHTML = chips + `<input id="tagField" class="tag-field" type="text"
+        placeholder="${state.formTags.length ? '' : 'ex: travail, urgent…'}">`;
+
+    // Event delegation sur le wrap
+    wrap.querySelectorAll('.rm-tag').forEach(btn => {
+        btn.addEventListener('mousedown', e => {
+            e.preventDefault(); // empêche le blur du tagField de se déclencher avant
+            state.formTags.splice(parseInt(btn.dataset.index), 1);
+            renderTagChips();
+            document.getElementById('tagField')?.focus();
+        });
+    });
 
     const field = document.getElementById('tagField');
     field.addEventListener('keydown', e => {
         if (e.key === 'Enter' || e.key === ',') {
             e.preventDefault();
-            if (addTag(field.value)) field.value = '';
-        } else if (e.key === 'Backspace' && !field.value && state.tags.length) {
-            state.tags.pop();
+            if (addFormTag(field.value)) field.value = '';
+        } else if (e.key === 'Backspace' && !field.value && state.formTags.length) {
+            state.formTags.pop();
             renderTagChips();
+            document.getElementById('tagField')?.focus();
         }
     });
     field.addEventListener('blur', () => {
-        if (field.value && addTag(field.value)) field.value = '';
+        if (field.value.trim()) addFormTag(field.value);
     });
 }
 
@@ -313,7 +356,8 @@ function setFilter(filter) {
     state.filter = filter;
     state.query  = '';
     document.getElementById('searchInput').value = '';
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === filter));
+    document.querySelectorAll('.filter-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.filter === filter));
     loadTasks();
 }
 
@@ -345,7 +389,7 @@ document.getElementById('searchInput').addEventListener('input', e => {
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 
 document.addEventListener('keydown', e => {
-    const inField = e.target.matches('input, textarea, select');
+    const inField   = e.target.matches('input, textarea, select');
     const modalOpen = document.getElementById('overlay').classList.contains('open');
     if (e.key === 'Escape') closeModal();
     if (e.key === 'n' && !inField && !modalOpen) openModal();
@@ -355,7 +399,12 @@ document.addEventListener('keydown', e => {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function priorityLabel(p) {
